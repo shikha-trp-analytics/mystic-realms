@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦸 Mario · 10 Levels</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        
+        body {
+            background: #0b1a2f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .game-container {
+            background: #1e3b4f;
+            padding: 20px 20px 25px;
+            border-radius: 32px;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, .6), inset 0 0 10px #5f9ea0;
+            border: 3px solid #7fb3b3;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 16px;
+            background: #92d0f0;
+            box-shadow: inset 0 0 30px #ffffff80, 0 6px 0 #3f6b7a;
+            border: 3px solid #b3e0f0;
+            cursor: pointer;
+        }
+        
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 6px 0;
+            color: #f0f9ff;
+            text-shadow: 3px 3px 0 #1e3b4f;
+            font-weight: bold;
+            font-size: 1.15rem;
+            letter-spacing: 1px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .score,
+        .level-box {
+            background: #2b4f5e;
+            padding: 8px 18px;
+            border-radius: 40px;
+            box-shadow: inset 0 2px 5px #6a9eb0, 0 3px 0 #0f2a33;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .level-box {
+            background: #3d2f6b;
+            color: #f5e56b;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            font-size: .85rem;
+            background: #2b4f5e;
+            padding: 8px 14px;
+            border-radius: 40px;
+            box-shadow: inset 0 2px 5px #6a9eb0, 0 3px 0 #0f2a33;
+        }
+        
+        .controls span {
+            background: #f5e56b;
+            color: #1e3b4f;
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-weight: 900;
+            box-shadow: 0 3px 0 #b09b4b;
+        }
+        
+        .restart-btn {
+            background: #f5e56b;
+            color: #1e3b4f;
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 8px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #b09b4b, 0 6px 8px black;
+            transition: all .05s ease;
+            font-family: inherit;
+            letter-spacing: 1px;
+        }
+        
+        .restart-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #b09b4b, 0 6px 8px black;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="900" height="450"></canvas>
+        <div class="info-panel">
+            <div class="score"><span>⭐</span> <span id="scoreDisplay">0</span></div>
+            <div class="level-box"><span>🎮</span> LEVEL <span id="levelDisplay">1</span>/10</div>
+            <div class="controls"><span>← →</span> move <span>␣</span> jump</div>
+            <button class="restart-btn" id="restartButton">↻ RESTART</button>
+        </div>
+    </div>
+    <script>
+        (function() {
+            const canvas = document.getElementById('gameCanvas'),
+                ctx = canvas.getContext('2d');
+            const scoreSpan = document.getElementById('scoreDisplay'),
+                levelSpan = document.getElementById('levelDisplay');
+            const W = 900,
+                H = 450;
+
+            // helper to build platforms/coins compactly
+            // p(x,y,w,type), c(x,y)
+            function makeLevel(worldW, startX, startY, groundSegs, bricks, coinList) {
+                const platforms = [];
+                for (const g of groundSegs) platforms.push({
+                    x: g[0],
+                    y: 380,
+                    w: g[1],
+                    h: 70,
+                    type: 'ground'
+                });
+                for (const b of bricks) platforms.push({
+                    x: b[0],
+                    y: b[1],
+                    w: b[2],
+                    h: 18,
+                    type: 'brick'
+                });
+                const coins = coinList.map(c => ({
+                    x: c[0],
+                    y: c[1],
+                    r: 12,
+                    collected: false
+                }));
+                return {
+                    worldW,
+                    startX,
+                    startY,
+                    platforms,
+                    coins
+                };
+            }
+
+            // ---------- 10 LEVELS ----------
+            const LEVELS = [
+                // L1 — intro
+                makeLevel(1800, 60, 280, [
+                    [0, 600],
+                    [700, 500],
+                    [1300, 500]
+                ], [
+                    [180, 300, 120],
+                    [400, 240, 130],
+                    [800, 280, 120],
+                    [1000, 210, 140],
+                    [1400, 280, 120],
+                    [1600, 220, 130]
+                ], [
+                    [220, 260],
+                    [440, 200],
+                    [840, 240],
+                    [1050, 170],
+                    [1440, 240],
+                    [1650, 180],
+                    [650, 330],
+                    [1250, 330]
+                ]),
+                // L2 — more gaps
+                makeLevel(2000, 60, 280, [
+                    [0, 450],
+                    [550, 400],
+                    [1050, 450],
+                    [1600, 400]
+                ], [
+                    [150, 280, 120],
+                    [380, 220, 130],
+                    [620, 250, 130],
+                    [850, 180, 140],
+                    [1120, 260, 120],
+                    [1350, 200, 140],
+                    [1680, 250, 130],
+                    [1880, 190, 120]
+                ], [
+                    [200, 240],
+                    [420, 180],
+                    [670, 210],
+                    [900, 140],
+                    [1160, 220],
+                    [1400, 160],
+                    [1720, 210],
+                    [1920, 150],
+                    [500, 330],
+                    [1000, 330],
+                    [1550, 330]
+                ]),
+                // L3 — high platforms
+                makeLevel(2100, 60, 280, [
+                    [0, 700],
+                    [800, 500],
+                    [1400, 700]
+                ], [
+                    [200, 300, 130],
+                    [420, 230, 130],
+                    [650, 160, 140],
+                    [900, 240, 120],
+                    [1100, 170, 140],
+                    [1350, 220, 130],
+                    [1550, 150, 140],
+                    [1750, 240, 130],
+                    [1950, 280, 120]
+                ], [
+                    [250, 260],
+                    [470, 190],
+                    [700, 120],
+                    [950, 200],
+                    [1150, 130],
+                    [1400, 180],
+                    [1600, 110],
+                    [1800, 200],
+                    [1990, 240],
+                    [750, 330],
+                    [1300, 330]
+                ]),
+                // L4 — zigzag
+                makeLevel(2200, 60, 280, [
+                    [0, 400],
+                    [500, 350],
+                    [950, 350],
+                    [1400, 350],
+                    [1850, 350]
+                ], [
+                    [120, 280, 110],
+                    [300, 200, 110],
+                    [550, 280, 110],
+                    [720, 200, 110],
+                    [950, 280, 110],
+                    [1120, 200, 110],
+                    [1350, 280, 110],
+                    [1520, 200, 110],
+                    [1750, 280, 110],
+                    [1920, 200, 110]
+                ], [
+                    [160, 240],
+                    [340, 160],
+                    [590, 240],
+                    [760, 160],
+                    [990, 240],
+                    [1160, 160],
+                    [1390, 240],
+                    [1560, 160],
+                    [1790, 240],
+                    [1960, 160],
+                    [440, 330],
+                    [880, 330],
+                    [1330, 330],
+                    [1780, 330]
+                ]),
+                // L5 — tight jumps
+                makeLevel(2300, 60, 280, [
+                    [0, 300],
+                    [400, 250],
+                    [750, 250],
+                    [1100, 250],
+                    [1450, 250],
+                    [1800, 250],
+                    [2150, 150]
+                ], [
+                    [100, 290, 100],
+                    [500, 250, 100],
+                    [850, 210, 100],
+                    [1200, 250, 100],
+                    [1550, 210, 100],
+                    [1900, 250, 100]
+                ], [
+                    [150, 250],
+                    [550, 210],
+                    [900, 170],
+                    [1250, 210],
+                    [1600, 170],
+                    [1950, 210],
+                    [350, 330],
+                    [700, 330],
+                    [1050, 330],
+                    [1400, 330],
+                    [1750, 330],
+                    [2100, 330]
+                ]),
+                // L6 — sky islands
+                makeLevel(2400, 60, 280, [
+                    [0, 400],
+                    [2000, 400]
+                ], [
+                    [150, 290, 120],
+                    [400, 220, 120],
+                    [650, 150, 130],
+                    [900, 220, 120],
+                    [1150, 290, 120],
+                    [1400, 220, 120],
+                    [1650, 150, 130],
+                    [1900, 220, 120],
+                    [2150, 290, 120]
+                ], [
+                    [200, 250],
+                    [450, 180],
+                    [710, 110],
+                    [950, 180],
+                    [1200, 250],
+                    [1450, 180],
+                    [1710, 110],
+                    [1950, 180],
+                    [2200, 250],
+                    [500, 330],
+                    [1000, 330],
+                    [1500, 330]
+                ]),
+                // L7 — platforms of doom
+                makeLevel(2500, 60, 280, [
+                    [0, 350],
+                    [450, 300],
+                    [850, 300],
+                    [1250, 300],
+                    [1650, 300],
+                    [2050, 450]
+                ], [
+                    [100, 290, 100],
+                    [280, 210, 100],
+                    [500, 290, 100],
+                    [680, 210, 100],
+                    [900, 290, 100],
+                    [1080, 210, 100],
+                    [1300, 290, 100],
+                    [1480, 210, 100],
+                    [1700, 290, 100],
+                    [1880, 210, 100],
+                    [2100, 290, 100],
+                    [2280, 210, 100]
+                ], [
+                    [140, 250],
+                    [320, 170],
+                    [540, 250],
+                    [720, 170],
+                    [940, 250],
+                    [1120, 170],
+                    [1340, 250],
+                    [1520, 170],
+                    [1740, 250],
+                    [1920, 170],
+                    [2140, 250],
+                    [2320, 170],
+                    [400, 330],
+                    [1200, 330],
+                    [2000, 330]
+                ]),
+                // L8 — the climb
+                makeLevel(2600, 60, 280, [
+                    [0, 500],
+                    [600, 400],
+                    [2100, 500]
+                ], [
+                    [150, 310, 110],
+                    [320, 240, 110],
+                    [490, 170, 110],
+                    [660, 240, 110],
+                    [830, 310, 110],
+                    [1000, 240, 110],
+                    [1170, 170, 110],
+                    [1340, 240, 110],
+                    [1510, 310, 110],
+                    [1680, 240, 110],
+                    [1850, 170, 110],
+                    [2020, 240, 110],
+                    [2200, 310, 110],
+                    [2380, 240, 110]
+                ], [
+                    [200, 270],
+                    [370, 200],
+                    [540, 130],
+                    [710, 200],
+                    [880, 270],
+                    [1050, 200],
+                    [1220, 130],
+                    [1390, 200],
+                    [1560, 270],
+                    [1730, 200],
+                    [1900, 130],
+                    [2070, 200],
+                    [2250, 270],
+                    [2430, 200],
+                    [100, 330],
+                    [1300, 330],
+                    [2300, 330]
+                ]),
+                // L9 — precision
+                makeLevel(2700, 60, 280, [
+                    [0, 300],
+                    [380, 250],
+                    [710, 250],
+                    [1040, 250],
+                    [1370, 250],
+                    [1700, 250],
+                    [2030, 250],
+                    [2360, 340]
+                ], [
+                    [80, 290, 90],
+                    [220, 220, 90],
+                    [450, 290, 90],
+                    [590, 220, 90],
+                    [780, 290, 90],
+                    [920, 220, 90],
+                    [1110, 290, 90],
+                    [1250, 220, 90],
+                    [1440, 290, 90],
+                    [1580, 220, 90],
+                    [1770, 290, 90],
+                    [1910, 220, 90],
+                    [2100, 290, 90],
+                    [2240, 220, 90],
+                    [2450, 290, 90]
+                ], [
+                    [120, 250],
+                    [260, 180],
+                    [490, 250],
+                    [630, 180],
+                    [820, 250],
+                    [960, 180],
+                    [1150, 250],
+                    [1290, 180],
+                    [1480, 250],
+                    [1620, 180],
+                    [1810, 250],
+                    [1950, 180],
+                    [2140, 250],
+                    [2280, 180],
+                    [2490, 250],
+                    [340, 330],
+                    [1000, 330],
+                    [1660, 330],
+                    [2320, 330]
+                ]),
+                // L10 — final challenge
+                makeLevel(2800, 60, 280, [
+                    [0, 350],
+                    [450, 300],
+                    [850, 300],
+                    [1250, 300],
+                    [1650, 300],
+                    [2050, 300],
+                    [2450, 350]
+                ], [
+                    [100, 300, 100],
+                    [280, 220, 100],
+                    [460, 150, 100],
+                    [640, 220, 100],
+                    [820, 300, 100],
+                    [1000, 220, 100],
+                    [1180, 150, 100],
+                    [1360, 220, 100],
+                    [1540, 300, 100],
+                    [1720, 220, 100],
+                    [1900, 150, 100],
+                    [2080, 220, 100],
+                    [2260, 300, 100],
+                    [2440, 220, 100],
+                    [2620, 150, 100]
+                ], [
+                    [150, 260],
+                    [330, 180],
+                    [510, 110],
+                    [690, 180],
+                    [870, 260],
+                    [1050, 180],
+                    [1230, 110],
+                    [1410, 180],
+                    [1590, 260],
+                    [1770, 180],
+                    [1950, 110],
+                    [2130, 180],
+                    [2310, 260],
+                    [2490, 180],
+                    [2670, 110],
+                    [400, 330],
+                    [1200, 330],
+                    [2000, 330]
+                ]),
+            ];
+
+            // ---------- GAME STATE ----------
+            let currentLevel = 0;
+            let score = 0;
+            let WORLD_W = 1800;
+            let platforms = [];
+            let coins = [];
+            let cameraX = 0;
+            let gameOver = false;
+            let levelComplete = false;
+            let completeTimer = 0;
+            let allDone = false;
+
+            const player = {
+                x: 60,
+                y: 280,
+                width: 28,
+                height: 38,
+                vx: 0,
+                vy: 0,
+                onGround: false,
+                facing: 1,
+                jumpPower: -13.5,
+                speed: 4.5
+            };
+
+            const keys = {
+                ArrowLeft: false,
+                ArrowRight: false,
+                Space: false,
+                KeyA: false,
+                KeyD: false,
+                KeyW: false
+            };
+
+            // ---------- LOAD LEVEL ----------
+            function loadLevel(idx) {
+                const L = LEVELS[idx];
+                WORLD_W = L.worldW;
+                platforms = L.platforms.map(p => ({...p
+                }));
+                coins = L.coins.map(c => ({
+                    x: c.x,
+                    y: c.y,
+                    r: 12,
+                    collected: false
+                }));
+                player.x = L.startX;
+                player.y = L.startY;
+                player.vx = 0;
+                player.vy = 0;
+                player.onGround = false;
+                player.facing = 1;
+                cameraX = 0;
+                gameOver = false;
+                levelComplete = false;
+                completeTimer = 0;
+                levelSpan.textContent = idx + 1;
+                for (const k in keys) keys[k] = false;
+            }
+
+            function resetGame() {
+                currentLevel = 0;
+                score = 0;
+                scoreSpan.textContent = '0';
+                allDone = false;
+                loadLevel(0);
+            }
+
+            function nextLevel() {
+                if (currentLevel < LEVELS.length - 1) {
+                    currentLevel++;
+                    loadLevel(currentLevel);
+                } else {
+                    allDone = true;
+                }
+            }
+
+            // ---------- PHYSICS ----------
+            function rectCollide(ax, ay, aw, ah, bx, by, bw, bh) {
+                return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+            }
+
+            function updatePlayer() {
+                if (gameOver || levelComplete) return;
+
+                let move = 0;
+                if (keys.ArrowRight || keys.KeyD) move += 1;
+                if (keys.ArrowLeft || keys.KeyA) move -= 1;
+
+                if (move !== 0) {
+                    player.vx = move * player.speed;
+                    player.facing = move;
+                } else {
+                    player.vx *= 0.6;
+                    if (Math.abs(player.vx) < 0.2) player.vx = 0;
+                }
+
+                if ((keys.Space || keys.KeyW) && player.onGround) {
+                    player.vy = player.jumpPower;
+                    player.onGround = false;
+                }
+
+                player.vy += 0.50;
+                if (player.vy > 14) player.vy = 14;
+
+                player.x += player.vx;
+                if (player.x < 0) {
+                    player.x = 0;
+                    player.vx = 0;
+                }
+                if (player.x + player.width > WORLD_W) {
+                    player.x = WORLD_W - player.width;
+                    player.vx = 0;
+                }
+
+                player.y += player.vy;
+                player.onGround = false;
+
+                for (const p of platforms) {
+                    if (rectCollide(player.x, player.y, player.width, player.height, p.x, p.y, p.w, p.h)) {
+                        if (player.vy >= 0 && player.y + player.height - player.vy <= p.y + 2) {
+                            player.y = p.y - player.height;
+                            player.vy = 0;
+                            player.onGround = true;
+                        } else if (player.vy < 0 && player.y - player.vy >= p.y + p.h - 2) {
+                            player.y = p.y + p.h;
+                            player.vy = 0;
+                        } else {
+                            if (player.x + player.width / 2 < p.x + p.w / 2) player.x = p.x - player.width;
+                            else player.x = p.x + p.w;
+                            player.vx = 0;
+                        }
+                    }
+                }
+
+                // fell off
+                if (player.y + player.height > H) {
+                    gameOver = true;
+                    return;
+                }
+                if (player.y < 0) {
+                    player.y = 0;
+                    player.vy = 0;
+                }
+
+                // coins
+                let remaining = 0;
+                for (const c of coins) {
+                    if (!c.collected) {
+                        const cx = Math.max(player.x, Math.min(c.x, player.x + player.width));
+                        const cy = Math.max(player.y, Math.min(c.y, player.y + player.height));
+                        const dx = cx - c.x,
+                            dy = cy - c.y;
+                        if (Math.sqrt(dx * dx + dy * dy) < c.r) {
+                            c.collected = true;
+                            score += 10;
+                            scoreSpan.textContent = score;
+                        } else {
+                            remaining++;
+                        }
+                    }
+                }
+
+                // level complete when all coins collected
+                if (remaining === 0 && !levelComplete) {
+                    levelComplete = true;
+                    completeTimer = 90; // ~1.5 sec
+                }
+
+                // camera
+                const targetCam = player.x - W / 2 + player.width / 2;
+                cameraX = Math.max(0, Math.min(targetCam, WORLD_W - W));
+            }
+
+            // ---------- DRAW ----------
+            function drawBackground() {
+                const grad = ctx.createLinearGradient(0, 0, 0, H);
+                grad.addColorStop(0, '#a0d8f1');
+                grad.addColorStop(0.7, '#c1e7fa');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.fillStyle = '#ffffffd0';
+                const off = (cameraX * 0.3) % 400;
+                for (let i = -1; i < 4; i++) {
+                    const bx = i * 400 - off;
+                    ctx.beginPath();
+                    ctx.arc(bx + 140, 60, 40, 0, Math.PI * 2);
+                    ctx.arc(bx + 190, 40, 35, 0, Math.PI * 2);
+                    ctx.arc(bx + 230, 65, 30, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                const off2 = (cameraX * 0.15) % 500;
+                for (let i = -1; i < 4; i++) {
+                    const bx = i * 500 + 200 - off2;
+                    ctx.beginPath();
+                    ctx.arc(bx, 90, 45, 0, Math.PI * 2);
+                    ctx.arc(bx + 60, 70, 35, 0, Math.PI * 2);
+                    ctx.arc(bx + 100, 95, 30, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function drawPlatforms() {
+                for (const p of platforms) {
+                    if (p.x + p.w < cameraX - 20 || p.x > cameraX + W + 20) continue;
+                    const sx = p.x - cameraX;
+                    if (p.type === 'ground') {
+                        ctx.fillStyle = '#6b8e23';
+                        ctx.fillRect(sx, p.y, p.w, p.h);
+                        ctx.fillStyle = '#7cb518';
+                        ctx.fillRect(sx, p.y, p.w, 14);
+                        ctx.fillStyle = '#4d6b1a';
+                        for (let i = 0; i < p.w; i += 40) {
+                            ctx.fillRect(sx + i, p.y + 18, 10, 8);
+                            ctx.fillRect(sx + i + 20, p.y + 40, 14, 8);
+                        }
+                        ctx.strokeStyle = '#3a4d15';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(sx, p.y, p.w, p.h);
+                    } else {
+                        ctx.fillStyle = '#c49a6c';
+                        ctx.fillRect(sx, p.y, p.w, p.h);
+                        ctx.fillStyle = '#a0724a';
+                        ctx.fillRect(sx, p.y + 4, p.w, 4);
+                        ctx.fillRect(sx, p.y + 12, p.w, 4);
+                        for (let i = 0; i < p.w; i += 30) ctx.fillRect(sx + i, p.y + 6, 4, 8);
+                        ctx.strokeStyle = '#6d4c2e';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(sx, p.y, p.w, p.h);
+                    }
+                }
+            }
+
+            function drawCoins() {
+                for (const c of coins) {
+                    if (c.collected) continue;
+                    const sx = c.x - cameraX;
+                    if (sx < -30 || sx > W + 30) continue;
+                    ctx.shadowColor = '#f5e56b';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(sx, c.y, c.r, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f5d742';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
+                    ctx.fillStyle = '#f0c000';
+                    ctx.beginPath();
+                    ctx.arc(sx - 3, c.y - 3, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff9c4';
+                    ctx.beginPath();
+                    ctx.arc(sx - 5, c.y - 5, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#c49a1a';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(sx, c.y, c.r, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            function drawPlayer() {
+                const px = player.x - cameraX,
+                    py = player.y,
+                    w = player.width,
+                    h = player.height;
+                ctx.fillStyle = '#e63946';
+                ctx.shadowColor = '#7a1f1f';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(px, py, w, h * 0.7);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#1e4b8f';
+                ctx.fillRect(px, py + h * 0.45, w, h * 0.55);
+                ctx.fillStyle = '#d62828';
+                ctx.beginPath();
+                ctx.ellipse(px + w / 2, py - 2, w / 2 + 3, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#b11e1e';
+                if (player.facing === 1) ctx.fillRect(px + w - 6, py - 6, 12, 6);
+                else ctx.fillRect(px - 6, py - 6, 12, 6);
+                ctx.fillStyle = '#f9d5a7';
+                ctx.beginPath();
+                ctx.ellipse(px + w / 2, py + 9, w / 2 - 4, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#1a1a1a';
+                if (player.facing === 1) {
+                    ctx.beginPath();
+                    ctx.arc(px + w - 10, py + 6, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(px + w - 11, py + 5, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(px + 10, py + 6, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(px + 9, py + 5, 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.fillStyle = '#4a2e1b';
+                ctx.beginPath();
+                if (player.facing === 1) ctx.ellipse(px + w - 12, py + 15, 6, 2.5, 0, 0, Math.PI * 2);
+                else ctx.ellipse(px + 12, py + 15, 6, 2.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#3d2b1a';
+                ctx.fillRect(px + 2, py + h - 5, 10, 6);
+                ctx.fillRect(px + w - 12, py + h - 5, 10, 6);
+                ctx.fillStyle = '#f0f0f0';
+                if (player.facing === 1) ctx.fillRect(px + w - 3, py + 20, 6, 6);
+                else ctx.fillRect(px - 3, py + 20, 6, 6);
+            }
+
+            function drawHUD() {
+                // mini progress bar
+                const barW = 300,
+                    barH = 10,
+                    barX = (W - barW) / 2,
+                    barY = H - 25;
+                ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                ctx.fillRect(barX, barY, barW, barH);
+                const prog = Math.min(1, player.x / (WORLD_W - 100));
+                ctx.fillStyle = '#f5e56b';
+                ctx.fillRect(barX, barY, barW * prog, barH);
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('🏁', barX + barW - 4, barY + 11);
+                ctx.textAlign = 'left';
+
+                // coins left
+                const left = coins.filter(c => !c.collected).length;
+                ctx.fillStyle = '#1e3b4f';
+                ctx.font = 'bold 18px monospace';
+                ctx.fillText('🪙 ' + left, W - 110, 30);
+            }
+
+            function drawOverlay(title, sub, color) {
+                ctx.fillStyle = 'rgba(0,0,0,0.72)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 54px "Courier New", monospace';
+                ctx.fillStyle = color;
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 20;
+                ctx.fillText(title, W / 2, H / 2 - 20);
+                ctx.font = '26px monospace';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(sub, W / 2, H / 2 + 45);
+                ctx.shadowBlur = 0;
+                ctx.textAlign = 'left';
+            }
+
+            // ---------- LOOP ----------
+            function gameLoop() {
+                if (!gameOver && !levelComplete && !allDone) updatePlayer();
+
+                if (levelComplete && !allDone) {
+                    completeTimer--;
+                    if (completeTimer <= 0) nextLevel();
+                }
+
+                drawBackground();
+                drawPlatforms();
+                drawCoins();
+                drawPlayer();
+                drawHUD();
+
+                if (gameOver) {
+                    drawOverlay('GAME OVER', 'press RESTART', '#f5e56b');
+                } else if (allDone) {
+                    drawOverlay('🎉 YOU WIN! 🎉', 'all 10 levels complete · press RESTART', '#f5e56b');
+                } else if (levelComplete) {
+                    drawOverlay('LEVEL ' + (currentLevel + 1) + ' COMPLETE!', 'next level loading...', '#7cb518');
+                }
+
+                requestAnimationFrame(gameLoop);
+            }
+
+            // ---------- EVENTS ----------
+            window.addEventListener('keydown', (e) => {
+                if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+                if (e.code in keys) keys[e.code] = true;
+                if ((gameOver || allDone) && (e.code === 'Space' || e.code === 'KeyR')) resetGame();
+            });
+            window.addEventListener('keyup', (e) => {
+                if (['Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+                if (e.code in keys) keys[e.code] = false;
+            });
+            document.getElementById('restartButton').addEventListener('click', resetGame);
+            canvas.addEventListener('click', () => {
+                if (gameOver || allDone) resetGame();
+            });
+
+            // ---------- START ----------
+            resetGame();
+            gameLoop();
+        })();
+    </script>
+</body>
+
+</html>
