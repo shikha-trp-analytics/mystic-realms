@@ -1,2 +1,20 @@
-# Mario-Game
-Mario Platformer is a 2D side-scrolling platformer game where you play as a Mario-style character and complete 10 levels by collecting coins and jumping across platforms. It's built entirely with HTML, CSS, and JavaScript with the help of Deepseek  — no libraries, no frameworks, and no installation needed. Just open it in a browser and play.
+# Mystic Realms 🎮
+
+Mystic Realms is a 2D side-scrolling platformer game featuring 10 exciting levels. Players collect coins, jump across platforms, avoid enemies, and overcome challenges.
+
+## Features
+- 10 challenging levels
+- Coin collection and scoring
+- Character movement and platform jumping
+- Enemies and boss battles
+- Hidden treasures and power-ups
+- Achievement system
+
+## Technologies Used
+- HTML
+- CSS
+- JavaScript
+- DeepSeek AI (AI-assisted code generation)
+
+## How to Play
+Open the game in your web browser and start playing. No installation required.
